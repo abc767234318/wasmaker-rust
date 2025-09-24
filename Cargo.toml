@@ -9,9 +9,10 @@ edition = "2024"
 
 
 [workspace]
-members = ["crates/parser"]
+members = ["crates/rewriter"]
 
 
 [workspace.dependencies]
 wasmparser = "0.239.0"
+wasm-encoder = "0.239.0"
 anyhow = "1.0.70"

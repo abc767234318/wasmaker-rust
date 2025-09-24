@@ -2,6 +2,8 @@ use anyhow::Result;
 use std::io::Read;
 use wasmparser::{Chunk, Parser, Payload::*};
 
+mod module;
+
 fn parse(mut reader: impl Read) -> Result<()> {
     let mut buf = Vec::new();
     let mut cur = Parser::new(0);
