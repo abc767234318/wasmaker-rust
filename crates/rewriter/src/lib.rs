@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::io::Read;
 use wasmparser::{Chunk, Parser, Payload::*};
 
+mod convert;
 mod module;
 
 fn parse(mut reader: impl Read) -> Result<()> {

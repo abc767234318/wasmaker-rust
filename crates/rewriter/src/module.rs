@@ -73,7 +73,7 @@ impl<'a> WasmModule<'a> {
                         data: Cow::Owned(reader.data().to_vec()),
                     };
                     wasm_module.custom_sections.push(custom_section);
-                },
+                }
                 Payload::TypeSection(reader) => {
                     let mut type_section = TypeSection::new();
                     for ty_group_iter in reader.into_iter() {
@@ -81,18 +81,18 @@ impl<'a> WasmModule<'a> {
                         for ty in ty_iter {
                             let composite_type = ty.composite_type.inner;
                             match composite_type {
-                                CompositeInnerType::Func(func_ty) => {
+                                wasm_encoder::CompositeInnerType::Func(func_ty) => {
                                     let func_params = func_ty.params();
                                     let func_results = func_ty.results();
                                     type_section.function(
                                         func_params.iter().copied(),
                                         func_results.iter().copied(),
                                     );
-                                },
+                                }
                                 // The following types are not supported yet.
-                                CompositeInnerType::Array(array_type) => {},
-                                CompositeInnerType::Struct(struct_type) => {},
-                                CompositeInnerType::Cont(cont_type) => {},
+                                wasm_encoder::CompositeInnerType::Array(array_type) => {}
+                                wasm_encoder::CompositeInnerType::Struct(struct_type) => {}
+                                wasm_encoder::CompositeInnerType::Cont(cont_type) => {}
                                 _ => {
                                     panic!("Unsupported type: {:?}", composite_type);
                                 }
@@ -100,7 +100,7 @@ impl<'a> WasmModule<'a> {
                         }
                     }
                     wasm_module.type_section = type_section;
-                },
+                }
                 Payload::ImportSection(reader) => {
                     let mut import_section = ImportSection::new();
                     for import_item in reader {
@@ -108,16 +108,16 @@ impl<'a> WasmModule<'a> {
                         let module = import_item.module;
                         let name = import_item.name;
                         match import_item.ty {
-                            TypeRef::Func(_) => {wasm_module.imported_functions_count+=1},
-                            TypeRef::Global(_) => {wasm_module.imported_globals_count+=1},
-                            TypeRef::Memory(_) => {wasm_module.imported_memories_count+=1},
-                            TypeRef::Table(_) => {wasm_module.imported_tables_count+=1},
-                            TypeRef::Tag(_) => {wasm_module.imported_tags_count+=1},
+                            TypeRef::Func(_) => wasm_module.imported_functions_count += 1,
+                            TypeRef::Global(_) => wasm_module.imported_globals_count += 1,
+                            TypeRef::Memory(_) => wasm_module.imported_memories_count += 1,
+                            TypeRef::Table(_) => wasm_module.imported_tables_count += 1,
+                            TypeRef::Tag(_) => wasm_module.imported_tags_count += 1,
                         }
                         import_section.import(module, name, import_item.ty);
                     }
                     wasm_module.import_section = import_section;
-                },
+                }
                 Payload::FunctionSection(reader) => {
                     let mut function_section = FunctionSection::new();
                     for func in reader {
@@ -125,7 +125,7 @@ impl<'a> WasmModule<'a> {
                         function_section.function(func);
                     }
                     wasm_module.function_section = function_section;
-                },
+                }
                 Payload::TableSection(reader) => {
                     let mut table_section = TableSection::new();
                     for table in reader {
@@ -133,7 +133,7 @@ impl<'a> WasmModule<'a> {
                         table_section.table(table);
                     }
                     wasm_module.table_section = table_section;
-                },
+                }
                 Payload::MemorySection(reader) => {
                     let mut memory_section = MemorySection::new();
                     for memory in reader {
@@ -141,10 +141,25 @@ impl<'a> WasmModule<'a> {
                         memory_section.memory(memory);
                     }
                     wasm_module.memory_section = memory_section;
-                },
+                }
+                Payload::GlobalSection(reader) => {
+                    let mut global_section = GlobalSection::new();
+                    for global in reader {
+                        let global = global.unwrap();
+                        global_section.global(
+                            global.ty,
+                            global
+                                .init_expr
+                                .get_operators_reader()
+                                .into_iter()
+                                .map(|op| op.unwrap()),
+                        );
+                    }
+                    wasm_module.global_section = global_section;
+                }
                 _ => {}
+            }
         }
-
         wasm_module
     }
 }
