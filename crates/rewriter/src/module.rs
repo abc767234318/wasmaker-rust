@@ -1,9 +1,12 @@
+use core::panic;
+use std::borrow::Cow;
+
 use wasm_encoder::{
-    CodeSection, CustomSection, DataCountSection, DataSection, ElementSection, ExportSection,
-    FunctionSection, GlobalSection, ImportSection, MemorySection, Module, StartSection,
-    TableSection, TagSection, TypeSection,
+    CodeSection, CompositeInnerType, CustomSection, DataCountSection, DataSection, ElementSection,
+    ExportSection, FunctionSection, GlobalSection, ImportSection, MemorySection, Module, SectionId,
+    StartSection, TableSection, TagSection, TypeSection,
 };
-use wasmparser::Parser;
+use wasmparser::{Parser, Payload, TypeRef};
 
 #[derive(Clone, Debug)] // I did not add Default here, it may be used later
 pub struct WasmModule<'a> {
@@ -57,9 +60,89 @@ impl<'a> WasmModule<'a> {
 
         loop {
             let (payload, consumed) = match parser.parse(input_wasm_binary, true).unwrap() {
-                wasmparser::Chunk::NeedMoreData(_) => break,
+                wasmparser::Chunk::NeedMoreData(hint) => {
+                    panic!("Invalid wasm binary: {hint:?}");
+                }
                 wasmparser::Chunk::Parsed { payload, consumed } => (payload, consumed),
             };
+
+            match payload {
+                Payload::CustomSection(reader) => {
+                    let custom_section = CustomSection {
+                        name: Cow::Owned(reader.name().to_string()),
+                        data: Cow::Owned(reader.data().to_vec()),
+                    };
+                    wasm_module.custom_sections.push(custom_section);
+                },
+                Payload::TypeSection(reader) => {
+                    let mut type_section = TypeSection::new();
+                    for ty_group_iter in reader.into_iter() {
+                        let ty_iter = ty_group_iter.unwrap().into_types();
+                        for ty in ty_iter {
+                            let composite_type = ty.composite_type.inner;
+                            match composite_type {
+                                CompositeInnerType::Func(func_ty) => {
+                                    let func_params = func_ty.params();
+                                    let func_results = func_ty.results();
+                                    type_section.function(
+                                        func_params.iter().copied(),
+                                        func_results.iter().copied(),
+                                    );
+                                },
+                                // The following types are not supported yet.
+                                CompositeInnerType::Array(array_type) => {},
+                                CompositeInnerType::Struct(struct_type) => {},
+                                CompositeInnerType::Cont(cont_type) => {},
+                                _ => {
+                                    panic!("Unsupported type: {:?}", composite_type);
+                                }
+                            }
+                        }
+                    }
+                    wasm_module.type_section = type_section;
+                },
+                Payload::ImportSection(reader) => {
+                    let mut import_section = ImportSection::new();
+                    for import_item in reader {
+                        let import_item = import_item.unwrap();
+                        let module = import_item.module;
+                        let name = import_item.name;
+                        match import_item.ty {
+                            TypeRef::Func(_) => {wasm_module.imported_functions_count+=1},
+                            TypeRef::Global(_) => {wasm_module.imported_globals_count+=1},
+                            TypeRef::Memory(_) => {wasm_module.imported_memories_count+=1},
+                            TypeRef::Table(_) => {wasm_module.imported_tables_count+=1},
+                            TypeRef::Tag(_) => {wasm_module.imported_tags_count+=1},
+                        }
+                        import_section.import(module, name, import_item.ty);
+                    }
+                    wasm_module.import_section = import_section;
+                },
+                Payload::FunctionSection(reader) => {
+                    let mut function_section = FunctionSection::new();
+                    for func in reader {
+                        let func = func.unwrap();
+                        function_section.function(func);
+                    }
+                    wasm_module.function_section = function_section;
+                },
+                Payload::TableSection(reader) => {
+                    let mut table_section = TableSection::new();
+                    for table in reader {
+                        let table = table.unwrap();
+                        table_section.table(table);
+                    }
+                    wasm_module.table_section = table_section;
+                },
+                Payload::MemorySection(reader) => {
+                    let mut memory_section = MemorySection::new();
+                    for memory in reader {
+                        let memory = memory.unwrap();
+                        memory_section.memory(memory);
+                    }
+                    wasm_module.memory_section = memory_section;
+                },
+                _ => {}
         }
 
         wasm_module
