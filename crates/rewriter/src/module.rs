@@ -3,10 +3,15 @@ use std::borrow::Cow;
 
 use wasm_encoder::{
     CodeSection, CompositeInnerType, CustomSection, DataCountSection, DataSection, ElementSection,
-    ExportSection, FunctionSection, GlobalSection, ImportSection, MemorySection, Module, SectionId,
-    StartSection, TableSection, TagSection, TypeSection,
+    ExportSection, FuncType, FunctionSection, GlobalSection, ImportSection, MemorySection, Module,
+    SectionId, StartSection, TableSection, TagSection, TypeSection,
 };
 use wasmparser::{Parser, Payload, TypeRef};
+
+use crate::convert::{
+    ParserToEncoderGlobalType, ParserToEncoderMemoryType, ParserToEncoderTableType,
+    ParserToEncoderTagType, ParserToEncoderValType,
+};
 
 #[derive(Clone, Debug)] // I did not add Default here, it may be used later
 pub struct WasmModule<'a> {
@@ -81,18 +86,24 @@ impl<'a> WasmModule<'a> {
                         for ty in ty_iter {
                             let composite_type = ty.composite_type.inner;
                             match composite_type {
-                                wasm_encoder::CompositeInnerType::Func(func_ty) => {
-                                    let func_params = func_ty.params();
-                                    let func_results = func_ty.results();
-                                    type_section.function(
-                                        func_params.iter().copied(),
-                                        func_results.iter().copied(),
-                                    );
+                                wasmparser::CompositeInnerType::Func(func_ty) => {
+                                    let func_params: Vec<wasm_encoder::ValType> = func_ty
+                                        .params()
+                                        .iter()
+                                        .map(|val_ty| val_ty.to_encoder_type())
+                                        .collect();
+                                    let func_results: Vec<wasm_encoder::ValType> = func_ty
+                                        .results()
+                                        .iter()
+                                        .map(|val_ty| val_ty.to_encoder_type())
+                                        .collect();
+                                    let func_type = FuncType::new(func_params, func_results);
+                                    type_section.ty().func_type(&func_type);
                                 }
                                 // The following types are not supported yet.
-                                wasm_encoder::CompositeInnerType::Array(array_type) => {}
-                                wasm_encoder::CompositeInnerType::Struct(struct_type) => {}
-                                wasm_encoder::CompositeInnerType::Cont(cont_type) => {}
+                                wasmparser::CompositeInnerType::Array(array_type) => {}
+                                wasmparser::CompositeInnerType::Struct(struct_type) => {}
+                                wasmparser::CompositeInnerType::Cont(cont_type) => {}
                                 _ => {
                                     panic!("Unsupported type: {:?}", composite_type);
                                 }
@@ -108,13 +119,36 @@ impl<'a> WasmModule<'a> {
                         let module = import_item.module;
                         let name = import_item.name;
                         match import_item.ty {
-                            TypeRef::Func(_) => wasm_module.imported_functions_count += 1,
-                            TypeRef::Global(_) => wasm_module.imported_globals_count += 1,
-                            TypeRef::Memory(_) => wasm_module.imported_memories_count += 1,
-                            TypeRef::Table(_) => wasm_module.imported_tables_count += 1,
-                            TypeRef::Tag(_) => wasm_module.imported_tags_count += 1,
+                            TypeRef::Func(functype_id) => {
+                                wasm_module.imported_functions_count += 1;
+                                let entity_type = wasm_encoder::EntityType::Function(functype_id);
+                                import_section.import(module, name, entity_type);
+                            }
+                            TypeRef::Global(globaltype) => {
+                                wasm_module.imported_globals_count += 1;
+                                let entity_type =
+                                    wasm_encoder::EntityType::Global(globaltype.to_encoder_type());
+                                import_section.import(module, name, entity_type);
+                            }
+                            TypeRef::Memory(memtype) => {
+                                wasm_module.imported_memories_count += 1;
+                                let entity_type =
+                                    wasm_encoder::EntityType::Memory(memtype.to_encoder_type());
+                                import_section.import(module, name, entity_type);
+                            }
+                            TypeRef::Table(tabletype) => {
+                                wasm_module.imported_tables_count += 1;
+                                let entity_type =
+                                    wasm_encoder::EntityType::Table(tabletype.to_encoder_type());
+                                import_section.import(module, name, entity_type);
+                            }
+                            TypeRef::Tag(tagtype) => {
+                                wasm_module.imported_tags_count += 1;
+                                let entity_type =
+                                    wasm_encoder::EntityType::Tag(tagtype.to_encoder_type());
+                                import_section.import(module, name, entity_type);
+                            }
                         }
-                        import_section.import(module, name, import_item.ty);
                     }
                     wasm_module.import_section = import_section;
                 }
@@ -130,7 +164,9 @@ impl<'a> WasmModule<'a> {
                     let mut table_section = TableSection::new();
                     for table in reader {
                         let table = table.unwrap();
-                        table_section.table(table);
+                        let tabletype = table.ty.to_encoder_type();
+                        let init_expr = table.init;
+                        table_section.table_with_init(tabletype, table.init);
                     }
                     wasm_module.table_section = table_section;
                 }
