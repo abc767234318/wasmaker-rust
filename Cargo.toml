@@ -9,7 +9,7 @@ edition = "2024"
 
 
 [workspace]
-members = ["crates/rewriter"]
+members = [ "crates/generator","crates/rewriter"]
 
 
 [workspace.dependencies]

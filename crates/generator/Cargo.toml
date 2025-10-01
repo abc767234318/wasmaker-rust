@@ -1,0 +1,9 @@
+[package]
+name = "generator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.86"
+bson = "3.0.0"
+mongodb = { version = "3.0.1", features = ["sync"] }

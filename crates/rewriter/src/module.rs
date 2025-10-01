@@ -160,39 +160,39 @@ impl<'a> WasmModule<'a> {
                     }
                     wasm_module.function_section = function_section;
                 }
-                Payload::TableSection(reader) => {
-                    let mut table_section = TableSection::new();
-                    for table in reader {
-                        let table = table.unwrap();
-                        let tabletype = table.ty.to_encoder_type();
-                        let init_expr = table.init;
-                        table_section.table_with_init(tabletype, table.init);
-                    }
-                    wasm_module.table_section = table_section;
-                }
-                Payload::MemorySection(reader) => {
-                    let mut memory_section = MemorySection::new();
-                    for memory in reader {
-                        let memory = memory.unwrap();
-                        memory_section.memory(memory);
-                    }
-                    wasm_module.memory_section = memory_section;
-                }
-                Payload::GlobalSection(reader) => {
-                    let mut global_section = GlobalSection::new();
-                    for global in reader {
-                        let global = global.unwrap();
-                        global_section.global(
-                            global.ty,
-                            global
-                                .init_expr
-                                .get_operators_reader()
-                                .into_iter()
-                                .map(|op| op.unwrap()),
-                        );
-                    }
-                    wasm_module.global_section = global_section;
-                }
+                // Payload::TableSection(reader) => {
+                //     let mut table_section = TableSection::new();
+                //     for table in reader {
+                //         let table = table.unwrap();
+                //         let tabletype = table.ty.to_encoder_type();
+                //         let init_expr = table.init;
+                //         table_section.table_with_init(tabletype, table.init);
+                //     }
+                //     wasm_module.table_section = table_section;
+                // }
+                // Payload::MemorySection(reader) => {
+                //     let mut memory_section = MemorySection::new();
+                //     for memory in reader {
+                //         let memory = memory.unwrap();
+                //         memory_section.memory(memory);
+                //     }
+                //     wasm_module.memory_section = memory_section;
+                // }
+                // Payload::GlobalSection(reader) => {
+                //     let mut global_section = GlobalSection::new();
+                //     for global in reader {
+                //         let global = global.unwrap();
+                //         global_section.global(
+                //             global.ty,
+                //             global
+                //                 .init_expr
+                //                 .get_operators_reader()
+                //                 .into_iter()
+                //                 .map(|op| op.unwrap()),
+                //         );
+                //     }
+                //     wasm_module.global_section = global_section;
+                // }
                 _ => {}
             }
         }
