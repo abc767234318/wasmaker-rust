@@ -209,6 +209,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+
+[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -507,6 +511,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bson 3.0.0",
+ "common",
  "mongodb",
 ]
 

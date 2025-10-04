@@ -1,8 +1,5 @@
 
-pub mod ast_loader;
-pub mod instruction;
-pub mod AST;
-pub mod module_generator;
+pub mod opcodes;
 
 
 pub fn add(left: u64, right: u64) -> u64 {

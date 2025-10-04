@@ -1,5 +1,5 @@
 
-type OpCode  = u16;
+use common::opcodes::OpCode;
 
 
 #[derive(Debug, Clone, PartialEq)]

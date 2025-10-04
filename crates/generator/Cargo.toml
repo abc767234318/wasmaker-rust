@@ -7,3 +7,5 @@ edition = "2024"
 anyhow = "1.0.86"
 bson = "3.0.0"
 mongodb = { version = "3.0.1", features = ["sync"] }
+
+common = { path = "../common" }
